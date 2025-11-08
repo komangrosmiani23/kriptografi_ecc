@@ -52,28 +52,29 @@ python main.py
 2. Dekripsi File
 3. Buat Sepasang Kunci
 0. Keluar
-
+```
 Keterangan:
 Menu 1 → Enkripsi teks dari data/input.txt
 Menu 2 → Dekripsi file data/output.txt
 Menu 3 → Membuat pasangan kunci privat & publik otomatis
-
+```
 ### Contoh Kasus Uji
 
-Plaintext : HELLO ECC TEST
-Kunci Publik (Q):
+#### Plaintext : 
+HELLO ECC TEST
+#### Kunci Publik (Q):
 -----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEmll0d4ZOBQf/6zXtGxuT3hEx17BD
 vm430pjrGEBI5MQ4uixc4rH2oEVxFdMdbDYrYvPoEDLRd2/rge3Vmmf58A==
 -----END PUBLIC KEY-----
-Hasil Enkripsi (Ciphertext):
+#### Hasil Enkripsi (Ciphertext):
 {
   "eph_pub_pem_b64": "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0K...",
   "salt_b64": "LQ4G/mhYP96mfKYKebMNew==",
   "nonce_b64": "xL7Y5Pb006yLIaRu",
   "ciphertext_b64": "P+wEi4cfrV2drFyJHZG77Z7w6WHloyxkdrwuhzc"
 }
-Hasil Dekripsi : HELLO ECC TEST
+#### Hasil Dekripsi : HELLO ECC TEST
 
 ## Hasil Pengujian
 | Jenis Uji              | Tujuan                                  | Hasil                            |
