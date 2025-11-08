@@ -1,28 +1,35 @@
 # kriptografi_ecc
+
 Implementasi **Elliptic Curve Cryptography (ECC)** menggunakan bahasa pemrograman **Python** untuk melakukan proses **enkripsi dan dekripsi data teks**.  
 Proyek ini dibuat sebagai bagian dari tugas besar mata kuliah *Kriptografi*.
 
+---
+
 ## Deskripsi Proyek
 Aplikasi ini mengimplementasikan algoritma **Elliptic Curve Integrated Encryption Scheme (ECIES)**, yaitu kombinasi dari:
-- **ECC (Elliptic Curve Cryptography)** untuk pertukaran kunci (key exchange), dan  
+- **ECC (Elliptic Curve Cryptography)** untuk pertukaran kunci (*key exchange*), dan  
 - **AES-GCM** untuk proses enkripsi dan dekripsi pesan.
 
 Pendekatan ini memungkinkan proses kriptografi yang aman, cepat, dan efisien pada data teks berukuran kecil hingga menengah.
 
-## Struktur Folder
-ecc_project/
-├─ main.py → Program utama (menu enkripsi/dekripsi)
-├─ ecc_core.py → Modul utama ECC (pembuatan kunci, enkripsi, dekripsi)
-├─ helper.py → Fungsi bantu (I/O file, pengukuran waktu, utilitas)
-├─ gui/app.py → Antarmuka pengguna berbasis Tkinter (opsional)
-├─ data/
-│ ├─ input.txt → File teks masukan (plaintext)
-│ ├─ output.txt → Hasil enkripsi (ciphertext JSON)
-│ ├─ decrypted.txt → Hasil dekripsi (plaintext kembali)
-│ ├─ privkey.pem → Kunci privat ECC
-│ └─ pubkey.pem → Kunci publik ECC
-└─ .gitignore → Daftar file yang diabaikan Git
+---
 
+## Struktur Folder
+```text
+ecc_project/
+├─ main.py           → Program utama (menu enkripsi/dekripsi)
+├─ ecc_core.py       → Modul utama ECC (pembuatan kunci, enkripsi, dekripsi)
+├─ helper.py         → Fungsi bantu (I/O file, pengukuran waktu, utilitas)
+├─ gui/app.py        → Antarmuka pengguna berbasis Tkinter (opsional)
+├─ data/
+│  ├─ input.txt      → File teks masukan (plaintext)
+│  ├─ output.txt     → Hasil enkripsi (ciphertext JSON)
+│  ├─ decrypted.txt  → Hasil dekripsi (plaintext kembali)
+│  ├─ privkey.pem    → Kunci privat ECC
+│  └─ pubkey.pem     → Kunci publik ECC
+└─ .gitignore        → Daftar file yang diabaikan Git
+
+```
 
 ## Cara Menjalankan Program
 
