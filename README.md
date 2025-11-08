@@ -31,8 +31,9 @@ Pastikan Python sudah terpasang.
 Versi yang disarankan: **Python 3.10+**
 
 Instal dependensi:
-```bash
+```bash```
 pip install cryptography
+
 
 ### 2 Jalankan Program
 Masuk ke folder proyek lalu jalankan:
