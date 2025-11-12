@@ -11,7 +11,7 @@ def write_text(path: str, content: str):
     Path(path).write_text(content, encoding="utf-8")
 
 def timer():
-    """Context manager sederhana untuk mengukur waktu"""
+    """Context manager sederhana untuk mengukur waktu."""
     class T:
         def __enter__(self):
             self.t0 = time.perf_counter()

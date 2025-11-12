@@ -1,3 +1,4 @@
+# main.py
 from pathlib import Path
 from ecc_core import (
     generate_keypair, save_private_key_pem, save_public_key_pem,
@@ -5,45 +6,57 @@ from ecc_core import (
     encrypt_message, decrypt_message
 )
 from helper import read_text, write_text, timer
-import json, sys
 
-DATA_DIR = Path("data")
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+import base64, json, sys
+from math import ceil
+
+DATA_DIR   = Path("data")
 DEFAULT_IN = DATA_DIR / "input.txt"
-DEFAULT_OUT = DATA_DIR / "output.txt"
-PRIV_PEM = DATA_DIR / "privkey.pem"
-PUB_PEM  = DATA_DIR / "pubkey.pem"
+DEFAULT_OUT= DATA_DIR / "output.txt"
+PRIV_PEM   = DATA_DIR / "privkey.pem"
+PUB_PEM    = DATA_DIR / "pubkey.pem"
+
+# ---------- util tampil demo laporan ----------
+def bytes_to_two_ints(b: bytes):
+    """Ubah bytes ciphertext jadi dua bilangan besar (visualisasi C2 untuk laporan)."""
+    if not b:
+        return 0, 0
+    half = ceil(len(b)/2)
+    a = int.from_bytes(b[:half],  byteorder="big")
+    c = int.from_bytes(b[half:],  byteorder="big")
+    return a, c
 
 def print_header():
-    print("="*40)
-    print("===  PROGRAM ENKRIPSI ECC (ECIES)  ===")
-    print("="*40)
+    print("="*45)
+    print("===  PROGRAM ENKRIPSI ECC (ECIES) - IND  ===")
+    print("="*45)
 
 def input_path(prompt: str, default: Path) -> Path:
-    p = input(f"{prompt} (tekan Enter untuk {default}): ").strip()
-    if not p:
-        return default
-    return Path(p)
+    p = input(f"{prompt} (Enter untuk {default}): ").strip()
+    return default if not p else Path(p)
 
+# ---------- aksi ----------
 def aksi_buat_kunci():
     priv, pub = generate_keypair()
     save_private_key_pem(priv, PRIV_PEM)
     save_public_key_pem(pub, PUB_PEM)
-    print("\n🔐 Kunci berhasil dibuat:")
+    print("\n🔐 Sepasang kunci berhasil dibuat:")
     print(f"   - Kunci Privat : {PRIV_PEM}")
     print(f"   - Kunci Publik : {PUB_PEM}")
 
 def aksi_enkripsi():
     print("\n--- Proses Enkripsi ---")
-    in_path = input_path("Masukkan path file input", DEFAULT_IN)
+    in_path  = input_path("Masukkan path file input", DEFAULT_IN)
     out_path = input_path("Masukkan path file output", DEFAULT_OUT)
 
     if not in_path.exists():
         print(f"[!] File input tidak ditemukan: {in_path}")
         return
 
-    # pastikan kunci publik ada
     if not PUB_PEM.exists():
-        print("[!] Kunci publik tidak ditemukan. Membuat kunci baru secara otomatis...")
+        print("[!] Kunci publik tidak ditemukan. Membuat kunci baru...")
         aksi_buat_kunci()
 
     pub = load_public_key_pem(PUB_PEM)
@@ -55,9 +68,51 @@ def aksi_enkripsi():
     print("🔒 Melakukan Enkripsi...")
     with timer() as t:
         enc = encrypt_message(plaintext.encode("utf-8"), pub)
+
+    # simpan JSON standar
     write_text(str(out_path), json.dumps(enc, indent=2))
     print("✅ Enkripsi selesai dalam {:.4f} detik.".format(t.elapsed))
-    print(f"PS: Hasil enkripsi tersimpan di {out_path}")
+    print(f"PS: Hasil enkripsi (JSON) tersimpan di {out_path}")
+
+    # ----- buat tampilan 'contoh uji' ala laporan -----
+    # koordinat kunci publik (Q)
+    pub_nums = pub.public_numbers()
+    pub_x, pub_y = pub_nums.x, pub_nums.y
+
+    # coba ambil nilai privat (kalau ada)
+    priv_val = None
+    if PRIV_PEM.exists():
+        try:
+            priv = load_private_key_pem(PRIV_PEM)
+            priv_val = priv.private_numbers().private_value
+        except Exception:
+            pass
+
+    # C1 dari ephemeral public key
+    eph_pub_pem = base64.b64decode(enc["eph_pub_pem_b64"])
+    eph_public = serialization.load_pem_public_key(eph_pub_pem, backend=default_backend())
+    eph_nums = eph_public.public_numbers()
+    c1x, c1y = eph_nums.x, eph_nums.y
+
+    # C2 (visualisasi: pecah ciphertext jadi dua integer)
+    ciphertext_bytes = base64.b64decode(enc["ciphertext_b64"])
+    c2a, c2b = bytes_to_two_ints(ciphertext_bytes)
+
+    demo_path = DATA_DIR / "demo_output.txt"
+    demo_lines = [
+        f"Plaintext : {plaintext}",
+        f"Kunci Publik (Q) : ({pub_x}, {pub_y})",
+    ]
+    if priv_val is not None:
+        demo_lines.append(f"Kunci Privat (d) : {priv_val}")
+    demo_lines += [
+        "Ciphertext :",
+        f"C1 = ({c1x}, {c1y})",
+        f"C2 = ({c2a}, {c2b})",
+        "Dekripsi : (jalankan menu 'Dekripsi File')"
+    ]
+    write_text(str(demo_path), "\n".join(demo_lines))
+    print(f"PS: Format 'contoh uji' untuk laporan disimpan di {demo_path}")
 
 def aksi_dekripsi():
     print("\n--- Proses Dekripsi ---")
@@ -67,7 +122,7 @@ def aksi_dekripsi():
         return
 
     if not PRIV_PEM.exists():
-        print("[!] Kunci privat tidak ditemukan. Silakan buat kunci dahulu (menu 1).")
+        print("[!] Kunci privat tidak ditemukan. Jalankan menu 3 untuk membuat kunci.")
         return
 
     priv = load_private_key_pem(PRIV_PEM)
@@ -94,7 +149,6 @@ def aksi_dekripsi():
     print("\n----- HASIL PLAINTEXT -----")
     print(plaintext)
     print("---------------------------")
-    # simpan hasil dekripsi
     dec_path = DATA_DIR / "decrypted.txt"
     write_text(str(dec_path), plaintext)
     print(f"PS: Plaintext juga disimpan di {dec_path}")
@@ -103,18 +157,15 @@ def main():
     DATA_DIR.mkdir(exist_ok=True, parents=True)
     while True:
         print_header()
-        print("1. Enkripsi File")
-        print("2. Dekripsi File")
+        print("1. Enkripsi File (data/input.txt -> data/output.txt)")
+        print("2. Dekripsi File (data/output.txt -> tampilkan & data/decrypted.txt)")
         print("3. Buat Sepasang Kunci (jika belum ada)")
         print("0. Keluar")
-        print("-"*40)
+        print("-"*45)
         pilih = input("Pilih (0-3): ").strip()
-        if pilih == "1":
-            aksi_enkripsi()
-        elif pilih == "2":
-            aksi_dekripsi()
-        elif pilih == "3":
-            aksi_buat_kunci()
+        if   pilih == "1": aksi_enkripsi()
+        elif pilih == "2": aksi_dekripsi()
+        elif pilih == "3": aksi_buat_kunci()
         elif pilih == "0":
             print("Terima kasih. Program selesai.")
             sys.exit(0)

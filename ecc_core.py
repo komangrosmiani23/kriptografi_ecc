@@ -6,13 +6,11 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.backends import default_backend
 import os, base64
 
-CURVE = ec.SECP256R1()  # secp256r1 (P-256)
+CURVE = ec.SECP256R1()  # P-256
 
-# =======================
-# Key Utilities
-# =======================
+# ---------- Util Kunci ----------
 def generate_keypair():
-    """Menghasilkan pasangan kunci ECC (private, public)"""
+    """Menghasilkan pasangan kunci ECC (private, public)."""
     private_key = ec.generate_private_key(CURVE, default_backend())
     public_key = private_key.public_key()
     return private_key, public_key
@@ -43,13 +41,11 @@ def load_public_key_pem(path):
     with open(path, "rb") as f:
         return serialization.load_pem_public_key(f.read(), backend=default_backend())
 
-# =======================
-# ECIES (ECDH + HKDF + AES-GCM)
-# =======================
+# ---------- ECIES (ECDH + HKDF + AES-GCM) ----------
 def _derive_aes_key(shared_secret: bytes, salt: bytes | None = None, info: bytes = b"ecc-ecies-v1"):
     hkdf = HKDF(
         algorithm=hashes.SHA256(),
-        length=32,  # 256-bit AES key
+        length=32,  # 256-bit key
         salt=salt,
         info=info,
         backend=default_backend()
@@ -58,19 +54,19 @@ def _derive_aes_key(shared_secret: bytes, salt: bytes | None = None, info: bytes
 
 def encrypt_message(plaintext: bytes, peer_public_key) -> dict:
     """
-    Enkripsi ECIES:
-    - Generate ephemeral key (ke)
-    - ECDH: ss = ke ⊙ pub_peer
-    - HKDF(ss) -> k_AES
-    - AES-GCM(k_AES, nonce, plaintext) -> ciphertext, tag
-    - Output berisi ephemeral public key + nonce + ciphertext (semua base64)
+    ECIES:
+      - Ephemeral key (ke)
+      - ECDH: ss = ke ⊙ pub_peer
+      - HKDF(ss) -> k_AES
+      - AES-GCM(k_AES, nonce, plaintext) -> ciphertext (bertag)
+      - Return: eph_pub (PEM, b64), salt, nonce, ciphertext (b64)
     """
-    # 1) ephemeral ECDH
+    # 1) ECDH ephemeral
     eph_private = ec.generate_private_key(CURVE, default_backend())
     eph_public = eph_private.public_key()
     shared_secret = eph_private.exchange(ec.ECDH(), peer_public_key)
 
-    # 2) derive AES key
+    # 2) Derive AES key
     salt = os.urandom(16)
     aes_key = _derive_aes_key(shared_secret, salt=salt)
 
@@ -79,7 +75,7 @@ def encrypt_message(plaintext: bytes, peer_public_key) -> dict:
     nonce = os.urandom(12)
     ciphertext = aesgcm.encrypt(nonce, plaintext, None)
 
-    # 4) serialize eph public key
+    # 4) Serialize eph public key
     eph_pub_pem = eph_public.public_bytes(
         serialization.Encoding.PEM,
         serialization.PublicFormat.SubjectPublicKeyInfo
@@ -87,22 +83,20 @@ def encrypt_message(plaintext: bytes, peer_public_key) -> dict:
 
     return {
         "eph_pub_pem_b64": base64.b64encode(eph_pub_pem).decode(),
-        "salt_b64": base64.b64encode(salt).decode(),
-        "nonce_b64": base64.b64encode(nonce).decode(),
-        "ciphertext_b64": base64.b64encode(ciphertext).decode()
+        "salt_b64":        base64.b64encode(salt).decode(),
+        "nonce_b64":       base64.b64encode(nonce).decode(),
+        "ciphertext_b64":  base64.b64encode(ciphertext).decode()
     }
 
 def decrypt_message(enc_bundle: dict, my_private_key) -> bytes:
-    """Dekripsi ECIES (kebalikan fungsi di atas)."""
+    """Dekripsi ECIES (kebalikan encrypt_message)."""
     eph_pub_pem = base64.b64decode(enc_bundle["eph_pub_pem_b64"])
-    salt = base64.b64decode(enc_bundle["salt_b64"])
-    nonce = base64.b64decode(enc_bundle["nonce_b64"])
-    ciphertext = base64.b64decode(enc_bundle["ciphertext_b64"])
+    salt        = base64.b64decode(enc_bundle["salt_b64"])
+    nonce       = base64.b64decode(enc_bundle["nonce_b64"])
+    ciphertext  = base64.b64decode(enc_bundle["ciphertext_b64"])
 
     eph_public = serialization.load_pem_public_key(eph_pub_pem, backend=default_backend())
     shared_secret = my_private_key.exchange(ec.ECDH(), eph_public)
     aes_key = _derive_aes_key(shared_secret, salt=salt)
-
     aesgcm = AESGCM(aes_key)
-    plaintext = aesgcm.decrypt(nonce, ciphertext, None)
-    return plaintext
+    return aesgcm.decrypt(nonce, ciphertext, None)
