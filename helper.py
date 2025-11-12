@@ -20,5 +20,3 @@ def timer():
             self.t1 = time.perf_counter()
             self.elapsed = self.t1 - self.t0
     return T()
-
-
