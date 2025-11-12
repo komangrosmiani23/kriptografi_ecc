@@ -69,17 +69,12 @@ def aksi_enkripsi():
     with timer() as t:
         enc = encrypt_message(plaintext.encode("utf-8"), pub)
 
-    # simpan JSON standar
-    write_text(str(out_path), json.dumps(enc, indent=2))
-    print("✅ Enkripsi selesai dalam {:.4f} detik.".format(t.elapsed))
-    print(f"PS: Hasil enkripsi (JSON) tersimpan di {out_path}")
-
-    # ----- buat tampilan 'contoh uji' ala laporan -----
-    # koordinat kunci publik (Q)
+    # --- siapkan data “angka” untuk format laporan ---
+    # koordinat Q (kunci publik)
     pub_nums = pub.public_numbers()
     pub_x, pub_y = pub_nums.x, pub_nums.y
 
-    # coba ambil nilai privat (kalau ada)
+    # kunci privat (opsional, hanya jika ada)
     priv_val = None
     if PRIV_PEM.exists():
         try:
@@ -88,16 +83,52 @@ def aksi_enkripsi():
         except Exception:
             pass
 
-    # C1 dari ephemeral public key
-    eph_pub_pem = base64.b64decode(enc["eph_pub_pem_b64"])
-    eph_public = serialization.load_pem_public_key(eph_pub_pem, backend=default_backend())
-    eph_nums = eph_public.public_numbers()
-    c1x, c1y = eph_nums.x, eph_nums.y
+    # C1 = koordinat ephemeral public key
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.backends import default_backend
+    import base64
+    from math import ceil
 
-    # C2 (visualisasi: pecah ciphertext jadi dua integer)
+    def bytes_to_two_ints(b: bytes):
+        if not b:
+            return 0, 0
+        half = (len(b) + 1) // 2  # ceil
+        a = int.from_bytes(b[:half],  byteorder="big")
+        c = int.from_bytes(b[half:],  byteorder="big")
+        return a, c
+
+    eph_pub_pem = base64.b64decode(enc["eph_pub_pem_b64"])
+    eph_public  = serialization.load_pem_public_key(eph_pub_pem, backend=default_backend())
+    eph_nums    = eph_public.public_numbers()
+    c1x, c1y    = eph_nums.x, eph_nums.y
+
+    # C2 = pecah ciphertext (bytes) menjadi dua bilangan besar
     ciphertext_bytes = base64.b64decode(enc["ciphertext_b64"])
     c2a, c2b = bytes_to_two_ints(ciphertext_bytes)
 
+    # --- gabungkan ke satu JSON untuk disimpan ke output.txt ---
+    enc_augmented = {
+        # blok asli untuk dekripsi (biarkan apa adanya!)
+        "eph_pub_pem_b64": enc["eph_pub_pem_b64"],
+        "salt_b64":        enc["salt_b64"],
+        "nonce_b64":       enc["nonce_b64"],
+        "ciphertext_b64":  enc["ciphertext_b64"],
+
+        # blok tambahan khusus “format laporan”
+        "report_plaintext": plaintext,
+        "report_public_key": {"x": pub_x, "y": pub_y},
+        # kunci privat opsional; hapus baris ini kalau tidak ingin disimpan
+        "report_private_key_d": priv_val if priv_val is not None else "(tidak disimpan)",
+        "report_C1": {"x": c1x, "y": c1y},
+        "report_C2": {"a": c2a, "b": c2b}
+    }
+
+    # simpan JSON augmented
+    write_text(str(out_path), json.dumps(enc_augmented, indent=2))
+    print("✅ Enkripsi selesai dalam {:.4f} detik.".format(t.elapsed))
+    print(f"PS: Hasil enkripsi+laporan disimpan di {out_path}")
+
+    # tambahan: file ringkas “contoh uji” untuk mudah copy ke makalah
     demo_path = DATA_DIR / "demo_output.txt"
     demo_lines = [
         f"Plaintext : {plaintext}",
@@ -112,7 +143,8 @@ def aksi_enkripsi():
         "Dekripsi : (jalankan menu 'Dekripsi File')"
     ]
     write_text(str(demo_path), "\n".join(demo_lines))
-    print(f"PS: Format 'contoh uji' untuk laporan disimpan di {demo_path}")
+    print(f"PS: Format 'contoh uji' untuk laporan juga ada di {demo_path}")
+
 
 def aksi_dekripsi():
     print("\n--- Proses Dekripsi ---")
